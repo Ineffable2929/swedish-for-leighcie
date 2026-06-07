@@ -44,11 +44,15 @@ Pronunciation uses the visitor's device voices. Most phones/computers have a
 Swedish voice; if not, it falls back to the default voice (still readable).
 
 ## Deploying
-Static site hosted on Dacia's Vercel.
-- Redeploy after edits:  `cd <this folder> && vercel --prod`
-- The live URL is saved in `DEPLOY.md` (created on first deploy).
-- First-time setup links the folder to a Vercel project; just accept the
-  defaults (no framework, output = the project root).
+Static site hosted on **GitHub Pages** (repo: `Ineffable2929/swedish-for-leighcie`).
+Chosen because the `gh` CLI is already authenticated here — no interactive login.
+
+- **Live URL:** https://ineffable2929.github.io/swedish-for-leighcie/
+- **Redeploy after edits** — just commit and push; Pages rebuilds in ~1 min:
+  `cd <this folder> && git add -A && git commit -m "..." && git push`
+- Pages was enabled from `main` branch, root path (`/`).
+- To move to Vercel later: import this GitHub repo at vercel.com — zero config
+  (no framework, output = repo root). See `DEPLOY.md` for details.
 
 ## Security note
 All page text is escaped before rendering (`escapeHtml` in `app.js`), so it's
