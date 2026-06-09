@@ -92,32 +92,40 @@ function setActiveChip(id) {
   );
 }
 
-/* ---------- Quiz: "feed the cat" ---------- */
+/* ---------- Quiz: "feed the cat" (10 questions, then results) ---------- */
 const ALL_PHRASES = CATEGORIES.flatMap(c => c.phrases);
-let quizScore = 0, quizAsked = 0;
+const QUIZ_LENGTH = 10;
+let quizQueue = [], quizIndex = 0, quizScore = 0, quizMissed = [];
 
 function startQuiz() {
-  quizScore = 0; quizAsked = 0;
-  document.getElementById("quiz").style.display = "block";
+  quizQueue = shuffle(ALL_PHRASES).slice(0, QUIZ_LENGTH);
+  quizIndex = 0; quizScore = 0; quizMissed = [];
+  const q = document.getElementById("quiz");
+  q.style.display = "block";
   nextQuestion();
-  document.getElementById("quiz").scrollIntoView({ behavior: "smooth", block: "center" });
+  q.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function catFace() {
+  if (quizScore === 0) return "🐱";
+  return (quizScore / Math.max(quizIndex, 1)) >= 0.7 ? "😺" : "🙂";
 }
 
 function nextQuestion() {
   const q = document.getElementById("quiz");
-  const answer = pickRandom(ALL_PHRASES);
-  // three wrong English options + the right one
+  if (quizIndex >= quizQueue.length) { showResults(); return; }
+
+  const answer = quizQueue[quizIndex];
   const wrongs = shuffle(ALL_PHRASES.filter(p => p.en !== answer.en)).slice(0, 3);
   const options = shuffle([answer, ...wrongs]);
 
-  const fed = "🐱".repeat(Math.min(quizScore, 8)) || "🍽️";
   q.innerHTML =
-    '<div class="feed">' + (quizScore > 0 ? "😺" : "🐱") + "</div>" +
-    '<div class="score">Treats earned: ' + quizScore + " / " + quizAsked + "</div>" +
+    '<div class="feed">' + catFace() + "</div>" +
+    '<div class="score">Question ' + (quizIndex + 1) + " of " + QUIZ_LENGTH +
+      "  ·  🐱 " + quizScore + " treats</div>" +
     '<div class="prompt">' + escapeHtml(answer.sv) +
       "<small>What does this mean? (tap to hear it 🔊)</small></div>";
 
-  // tap prompt to hear
   q.querySelector(".prompt").onclick = () => speak(answer.sv);
 
   const opts = document.createElement("div");
@@ -126,27 +134,73 @@ function nextQuestion() {
     const b = document.createElement("button");
     b.textContent = opt.en;
     b.onclick = () => {
-      quizAsked++;
       const correct = opt.en === answer.en;
       if (correct) { quizScore++; b.classList.add("right"); }
       else {
         b.classList.add("wrong");
+        quizMissed.push(answer);
         [...opts.children].forEach(x => { if (x.textContent === answer.en) x.classList.add("right"); });
       }
       [...opts.children].forEach(x => x.disabled = true);
+      quizIndex++;
       q.querySelector(".feed").textContent = correct ? "😻" : "🙀";
-      q.querySelector(".score").textContent = "Treats earned: " + quizScore + " / " + quizAsked;
+      q.querySelector(".score").textContent =
+        "Question " + quizIndex + " of " + QUIZ_LENGTH + "  ·  🐱 " + quizScore + " treats";
       speak(answer.sv);
 
       const nxt = document.createElement("div");
       nxt.className = "next";
-      nxt.innerHTML = "<button>Next →</button>";
+      nxt.innerHTML = "<button>" + (quizIndex >= quizQueue.length ? "See results 🎉" : "Next →") + "</button>";
       nxt.querySelector("button").onclick = nextQuestion;
       q.appendChild(nxt);
     };
     opts.appendChild(b);
   });
   q.appendChild(opts);
+}
+
+function showResults() {
+  const q = document.getElementById("quiz");
+  const fed = "🐱".repeat(Math.max(1, quizScore));
+  let face, msg;
+  if (quizScore === QUIZ_LENGTH)   { face = "😻"; msg = "Purr-fect! The cat is very, very full. 🏆"; }
+  else if (quizScore >= 7)         { face = "😻"; msg = "The cat is happy and well-fed. Snyggt! 🎉"; }
+  else if (quizScore >= 4)         { face = "😺"; msg = "The cat got some treats — keep practicing! 🐾"; }
+  else                             { face = "🐱"; msg = "The cat is still a little hungry. Give it another go! 🐱"; }
+
+  q.innerHTML =
+    '<div class="feed">' + face + "</div>" +
+    '<div class="result-score">' + quizScore + " / " + QUIZ_LENGTH + " treats</div>" +
+    '<div class="fed-row">' + fed + "</div>" +
+    '<div class="result-msg">' + msg + "</div>" +
+    '<div class="result-actions">' +
+      '<button class="again">🔁 Take it again</button>' +
+      (quizMissed.length ? '<button class="review">📖 Review what I missed (' + quizMissed.length + ")</button>" : "") +
+    "</div>";
+  q.querySelector(".again").onclick = startQuiz;
+  const rev = q.querySelector(".review");
+  if (rev) rev.onclick = showReview;
+}
+
+function showReview() {
+  const q = document.getElementById("quiz");
+  const seen = new Set();
+  const list = quizMissed.filter(p => !seen.has(p.en) && seen.add(p.en));
+  q.innerHTML =
+    '<div class="feed">📖</div>' +
+    '<div class="result-msg">Words to practice — tap any to hear it 🔊</div>' +
+    '<div class="review-list">' +
+      list.map(p =>
+        '<div class="review-item" data-sv="' + escapeHtml(p.sv) + '">' +
+          '<span class="sv">' + escapeHtml(p.sv) + "</span>" +
+          '<span class="en">' + escapeHtml(p.en) + "</span>" +
+          (p.say ? '<span class="say">“' + escapeHtml(p.say) + '”</span>' : "") +
+        "</div>"
+      ).join("") +
+    "</div>" +
+    '<div class="result-actions"><button class="again">🔁 Take the quiz again</button></div>';
+  q.querySelectorAll(".review-item").forEach(it => (it.onclick = () => speak(it.dataset.sv, it)));
+  q.querySelector(".again").onclick = startQuiz;
 }
 
 /* ---------- helpers ---------- */
